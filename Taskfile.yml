@@ -1,0 +1,40 @@
+version: '3'
+
+tasks:
+  default:
+    desc: Runs the help task
+    deps: [help]
+    silent: True
+  help:
+    desc: Runs the list tasks
+    cmds:
+      - task --list
+    silent: True
+  verify:
+    desc: Verify if docker is running
+    cmds:
+      - docker ps
+  build:
+    desc: Builds airflow
+    cmds:
+      - docker-compose -f deps.docker-compose.yml build
+      - docker-compose build webserver
+      - docker-compose build flower
+      - docker-compose build scheduler
+      - docker-compose build worker
+  run:
+    desc: Runs docker-compose up -d
+    cmds:
+      - docker-compose up --build -d
+  logs:
+    desc: Runs docker-compose logs -f
+    cmds:
+      - docker-compose logs -f
+  down:
+    desc: Stops containers
+    cmds:
+      - docker-compose down
+  clean:
+    desc: Runs docker system prune -f --all
+    cmds:
+      - docker system prune -f --all

@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  base:
+    image: airflow-dependencies:1.10.14
+    container_name: airflow-dependencies
+    build:
+      context: .
+      dockerfile: components/base/Dockerfile
+      args:
+        version: 1.10.14

@@ -1,0 +1,8 @@
+# python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+AIRFLOW_FERNET_KEY="dUjw7838eFXrkdjlxjnlYnJUZKkYyfrhEniboYbjytY="
+AIRFLOW_ADMIN_PASSWORD=password
+AIRFLOW_VERSION=1.10.14
+CELERY_REDIS_VERSION=4.2.0
+PYTHON_REDIS_VERSION=3.2.0
+TORNADO_VERSION=5.1.1
+WERKZEUG_VERSION=0.16.0

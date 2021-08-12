@@ -1,0 +1,160 @@
+version: "3.8"
+
+services:
+  redis:
+    image: redis:6.0
+    container_name: airflow-redis
+    command: redis-server
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 50
+    networks:
+      - airflow
+
+  postgres:
+    image: postgres:10.4
+    container_name: airflow-postgres
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    networks:
+      - airflow
+
+  webserver:
+    container_name: airflow-webserver
+    build:
+      context: .
+      dockerfile: components/webserver/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      - FERNET_KEY=${AIRFLOW_FERNET_KEY:-dUjw7838eFXrkdjlxjnlYnJUZKkYyfrhEniboYbjytY=}
+      - AIRFLOW_BASE_URL=http://localhost:8080
+      - AIRFLOW_ADMIN_EMAIL=${AIRFLOW_ADMIN_EMAIL:-airflow@localhost}
+      - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD:-password}
+      - ENABLE_REMOTE_LOGGING=False
+      - STAGE=dev
+      - TZ=Africa/Johannesburg
+      - AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=15
+      - AIRFLOW__WEBSERVER__RBAC=True
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    ports:
+      - 8080:8080
+    command: webserver
+    networks:
+      - airflow
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  flower:
+    container_name: airflow-flower
+    build:
+      context: .
+      dockerfile: components/flower/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+      webserver:
+        condition: service_started
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      - STAGE=dev
+      - TZ=Africa/Johannesburg
+      - AIRFLOW_ADMIN_PASSWORD=${AIRFLOW_ADMIN_PASSWORD:-password}
+    ports:
+      - 5556:5555
+    command: flower
+    networks:
+      - airflow
+
+  scheduler:
+    container_name: airflow-scheduler
+    build:
+      context: .
+      dockerfile: components/scheduler/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - webserver
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      - FERNET_KEY=${AIRFLOW_FERNET_KEY:-dUjw7838eFXrkdjlxjnlYnJUZKkYyfrhEniboYbjytY=}
+      - AIRFLOW_BASE_URL=http://localhost:8080
+      - ENABLE_REMOTE_LOGGING=False
+      - STAGE=dev
+      - TZ=Africa/Johannesburg
+    command: scheduler
+    networks:
+      - airflow
+
+  worker:
+    container_name: airflow-worker
+    build:
+      context: .
+      dockerfile: components/worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - webserver
+      - scheduler
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      - FERNET_KEY=${AIRFLOW_FERNET_KEY:-dUjw7838eFXrkdjlxjnlYnJUZKkYyfrhEniboYbjytY=}
+      - AIRFLOW_BASE_URL=http://localhost:8080
+      - ENABLE_REMOTE_LOGGING=False
+      - STAGE=dev
+      - TZ=Africa/Johannesburg
+    command: worker
+    networks:
+      - airflow
+
+networks:
+  airflow:
+    name: airflow
